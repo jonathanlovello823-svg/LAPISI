@@ -2,16 +2,16 @@ const GAS_URL =
   "https://script.google.com/macros/s/AKfycby79xI5AR_R4XD5xSU7D_Qyr-0Je9y7HoQZqJp7VDqRPl3Wnbp1MYXd62OQ1UrVz5l0/exec";
 
 export async function onRequest(context) {
-  const incomingUrl = new URL(context.request.url);
+  const requestUrl = new URL(context.request.url);
 
   const targetUrl = new URL(GAS_URL);
 
-  // Teruskan query parameter
-  incomingUrl.searchParams.forEach((value, key) => {
-    targetUrl.searchParams.set(key, value);
+  // Teruskan query parameter dari domain kita
+  requestUrl.searchParams.forEach((value, key) => {
+    targetUrl.searchParams.append(key, value);
   });
 
-  const request = new Request(targetUrl.toString(), {
+  const response = await fetch(targetUrl.toString(), {
     method: context.request.method,
     headers: context.request.headers,
     body:
@@ -19,20 +19,19 @@ export async function onRequest(context) {
       context.request.method === "HEAD"
         ? undefined
         : context.request.body,
-    redirect: "manual"
-  });
 
-  const response = await fetch(request);
+    // IKUTI redirect Google Apps Script
+    redirect: "follow"
+  });
 
   const headers = new Headers(response.headers);
 
-  // Jangan biarkan redirect Google Apps Script
-  // langsung mengubah URL browser.
-  headers.delete("location");
+  // Jangan teruskan header yang bisa membuat masalah
+  headers.delete("content-encoding");
+  headers.delete("content-length");
 
   return new Response(response.body, {
     status: response.status,
-    statusText: response.statusText,
     headers
   });
 }
