@@ -1,37 +1,71 @@
-const GAS_URL =
-  "https://script.google.com/macros/s/AKfycby79xI5AR_R4XD5xSU7D_Qyr-0Je9y7HoQZqJp7VDqRPl3Wnbp1MYXd62OQ1UrVz5l0/exec";
+const GAS_ORIGIN =
+  "https://script.google.com";
+
+const GAS_APP =
+  "/macros/s/AKfycby79xI5AR_R4XD5xSU7D_Qyr-0Je9y7HoQZqJp7VDqRPl3Wnbp1MYXd62OQ1UrVz5l0/exec";
 
 export async function onRequest(context) {
-  const requestUrl = new URL(context.request.url);
 
-  const targetUrl = new URL(GAS_URL);
+  const incoming = new URL(context.request.url);
 
-  // Teruskan query parameter dari domain kita
-  requestUrl.searchParams.forEach((value, key) => {
-    targetUrl.searchParams.append(key, value);
-  });
+  let target;
 
-  const response = await fetch(targetUrl.toString(), {
-    method: context.request.method,
-    headers: context.request.headers,
-    body:
-      context.request.method === "GET" ||
-      context.request.method === "HEAD"
-        ? undefined
-        : context.request.body,
+  /*
+   * Halaman utama Apps Script
+   */
+  if (
+    incoming.pathname === "/" ||
+    incoming.pathname === ""
+  ) {
+    target = new URL(GAS_ORIGIN + GAS_APP);
 
-    // IKUTI redirect Google Apps Script
-    redirect: "follow"
-  });
+    incoming.searchParams.forEach((value, key) => {
+      target.searchParams.append(key, value);
+    });
+  }
+
+  /*
+   * Resource internal Apps Script:
+   * /static/...
+   */
+  else {
+    target = new URL(
+      GAS_ORIGIN + incoming.pathname
+    );
+
+    incoming.searchParams.forEach((value, key) => {
+      target.searchParams.append(key, value);
+    });
+  }
+
+  const request = new Request(
+    target.toString(),
+    {
+      method: context.request.method,
+      headers: context.request.headers,
+      body:
+        context.request.method === "GET" ||
+        context.request.method === "HEAD"
+          ? undefined
+          : context.request.body,
+
+      redirect: "follow"
+    }
+  );
+
+  const response = await fetch(request);
 
   const headers = new Headers(response.headers);
 
-  // Jangan teruskan header yang bisa membuat masalah
   headers.delete("content-encoding");
   headers.delete("content-length");
+  headers.delete("content-security-policy");
 
-  return new Response(response.body, {
-    status: response.status,
-    headers
-  });
+  return new Response(
+    response.body,
+    {
+      status: response.status,
+      headers
+    }
+  );
 }
